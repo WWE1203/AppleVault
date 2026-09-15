@@ -22,8 +22,29 @@
         <div class="repo-link-bar">
           <AppInput model-value="https://github.com/wnnz/AppleVault" readonly size="small" class="flex-1" />
           <AppButton type="primary" size="small" @click="openGitHub">访问 GitHub</AppButton>
-          <AppButton secondary size="small" :loading="isCheckingUpdate" @click="checkForUpdates">检查更新</AppButton>
           <AppButton secondary size="small" class="copy-address-btn" @click="copyGitHubUrl">复制地址</AppButton>
+        </div>
+      </div>
+
+      <div class="about-section-box about-update-box">
+        <div class="about-update-copy">
+          <div class="about-section-label">软件更新</div>
+          <div class="about-update-status" :class="updateStatusClass" role="status" aria-live="polite">
+            {{ updateStatusText }}
+          </div>
+        </div>
+        <div class="about-update-actions">
+          <AppButton
+            v-if="updateInfo?.available && updateInfo.releaseURL"
+            type="primary"
+            size="small"
+            @click="openRelease"
+          >
+            查看 v{{ formatAppVersion(updateInfo.latestVersion) }}
+          </AppButton>
+          <AppButton secondary size="small" :loading="isCheckingUpdate" @click="checkForUpdates">
+            {{ updateInfo ? '重新检查' : '检查更新' }}
+          </AppButton>
         </div>
       </div>
 
@@ -40,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useClipboard } from '@vueuse/core'
 import AppButton from '../../ui/components/AppButton.vue'
 import AppCard from '../../ui/components/AppCard.vue'
@@ -49,15 +70,38 @@ import { useAppMessage } from '../../ui/feedback'
 import { bundledAppVersion, formatAppVersion } from '../../ui/version'
 import { BrowserOpenURL } from '../../../wailsjs/runtime/runtime'
 import { CheckForUpdates, GetAppVersion } from '../../../wailsjs/go/backend/App'
+import { backend } from '../../../wailsjs/go/models'
 import logo from '../../assets/applevault-logo.webp'
 
 const message = useAppMessage()
 const { copy } = useClipboard({ legacy: true })
 const appVersion = ref(bundledAppVersion)
 const isCheckingUpdate = ref(false)
+const updateInfo = ref<backend.UpdateInfo | null>(null)
+const updateError = ref('')
+
+const updateStatusText = computed(() => {
+  if (isCheckingUpdate.value) return '正在通过 GitHub Releases 检查最新版本…'
+  if (updateError.value) return updateError.value
+  if (updateInfo.value?.available) {
+    return `发现新版本 v${formatAppVersion(updateInfo.value.latestVersion)}，可前往 GitHub 查看发布说明并下载。`
+  }
+  if (updateInfo.value) return `当前 v${formatAppVersion(updateInfo.value.currentVersion)} 已是最新版本。`
+  return `当前版本 v${appVersion.value}，可通过 GitHub Releases 检查更新。`
+})
+
+const updateStatusClass = computed(() => ({
+  'is-available': !!updateInfo.value?.available,
+  'is-current': !!updateInfo.value && !updateInfo.value.available,
+  'is-error': !!updateError.value
+}))
 
 function openGitHub() {
   BrowserOpenURL('https://github.com/wnnz/AppleVault')
+}
+
+function openRelease() {
+  if (updateInfo.value?.releaseURL) BrowserOpenURL(updateInfo.value.releaseURL)
 }
 
 async function copyGitHubUrl() {
@@ -67,16 +111,19 @@ async function copyGitHubUrl() {
 
 async function checkForUpdates() {
   isCheckingUpdate.value = true
+  updateError.value = ''
   try {
-    const info = await CheckForUpdates()
-    if (info.available) {
-      message.info(`发现新版本 v${formatAppVersion(info.latestVersion)}，正在打开发布页面`)
-      if (info.releaseURL) BrowserOpenURL(info.releaseURL)
+    updateInfo.value = await CheckForUpdates()
+    if (updateInfo.value.available) {
+      message.info(`发现新版本 v${formatAppVersion(updateInfo.value.latestVersion)}`)
     } else {
-      message.success(`当前 v${formatAppVersion(info.currentVersion)} 已是最新版本`)
+      message.success(`当前 v${formatAppVersion(updateInfo.value.currentVersion)} 已是最新版本`)
     }
-  } catch (err: any) {
-    message.error(`检查更新失败: ${err}`)
+  } catch (err: unknown) {
+    updateInfo.value = null
+    const detail = err instanceof Error ? err.message : String(err)
+    updateError.value = `检查失败：${detail}`
+    message.error(updateError.value)
   } finally {
     isCheckingUpdate.value = false
   }

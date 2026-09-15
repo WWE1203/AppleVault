@@ -1754,6 +1754,62 @@
   gap: 10px;
 }
 
+.about-update-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.about-update-copy {
+  min-width: 0;
+}
+
+.about-update-copy .about-section-label {
+  margin-bottom: 4px;
+}
+
+.about-update-status {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.about-update-status.is-current {
+  color: #16803c;
+}
+
+.about-update-status.is-available {
+  color: #0071e3;
+}
+
+.about-update-status.is-error {
+  color: #dc2626;
+}
+
+.dark-mode .about-update-status {
+  color: #94a3b8;
+}
+
+.dark-mode .about-update-status.is-current {
+  color: #4ade80;
+}
+
+.dark-mode .about-update-status.is-available {
+  color: #38bdf8;
+}
+
+.dark-mode .about-update-status.is-error {
+  color: #f87171;
+}
+
+.about-update-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
 .about-features-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
